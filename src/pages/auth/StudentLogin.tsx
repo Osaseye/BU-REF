@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { useUmisAuth } from '../../hooks/useUmisAuth';
+import { toast } from 'sonner';
 
 const studentLoginSchema = z.object({
   matricNo: z.string().regex(/^\d{2}\/\d{4}$/, 'Matric Number must be in the format YY/XXXX (e.g., 22/0206)'),
@@ -16,20 +18,24 @@ type StudentLoginFormData = z.infer<typeof studentLoginSchema>;
 export const StudentLogin: React.FC = () => {
   const navigate = useNavigate();
   
+  const { login, loading } = useUmisAuth();
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<StudentLoginFormData>({
     resolver: zodResolver(studentLoginSchema),
   });
 
   const onSubmit = async (data: StudentLoginFormData) => {
-    // Placeholder login logic until useUmisAuth hook is implemented
-    console.log('Student Login:', data);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    navigate('/student/profile'); // Assuming a successful path
+    try {
+      await login(data.matricNo, data.password);
+      toast.success('Login Successful');
+      navigate('/student/profile', { replace: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Login failed');
+    }
   };
 
   return (
@@ -81,8 +87,8 @@ export const StudentLogin: React.FC = () => {
         />
 
         <div className="pt-2">
-          <Button type="submit" fullWidth disabled={isSubmitting}>
-            {isSubmitting ? 'Authenticating...' : 'Sign In'}
+          <Button type="submit" fullWidth disabled={loading}>
+            {loading ? 'Authenticating...' : 'Sign In'}
           </Button>
         </div>
       </form>

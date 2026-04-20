@@ -5,6 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { auth, db } from '../../lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 const staffLoginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -25,11 +29,43 @@ export const StaffLogin: React.FC = () => {
   });
 
   const onSubmit = async (data: StaffLoginFormData) => {
-    // Placeholder login logic until AuthContext is implemented
-    console.log('Staff Login:', data);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    navigate('/lecturer/dashboard'); // Assuming a successful path
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      // Ensure the user actually exists in the admins or lecturers DB
+      let role = null;
+      let status = null;
+
+      const adminRef = doc(db, 'admins', user.uid);
+      const adminSnap = await getDoc(adminRef);
+
+      if (adminSnap.exists()) {
+        role = 'admin';
+      } else {
+        const lecturerRef = doc(db, 'lecturers', user.uid);
+        const lecturerSnap = await getDoc(lecturerRef);
+        if (lecturerSnap.exists()) {
+          role = 'lecturer';
+          status = lecturerSnap.data().status;
+        }
+      }
+
+      if (!role) {
+        throw new Error('Access denied. No related staff account found.');
+      }
+
+      if (role === 'lecturer' && status !== 'active') {
+        throw new Error('Access denied. Your account is revoked.');
+      }
+
+      toast.success('Login Successful');
+      navigate(`/${role}/dashboard`, { replace: true });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Invalid credentials');
+      auth.signOut();
+    }
   };
 
   return (

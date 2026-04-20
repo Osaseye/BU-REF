@@ -2,38 +2,26 @@ import React, { useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { LecturerTable, type Lecturer } from '../../components/admin/LecturerTable';
 import { InviteLecturerModal, type InviteFormData } from '../../components/admin/InviteLecturerModal';
-import { UserPlus, ArrowLeft } from 'lucide-react';
+import { UserPlus, ArrowLeft, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-
-const MOCK_LECTURERS: Lecturer[] = [
-  { uid: '1', fullName: 'Dr. Adegboola', email: 'adegboola@babcock.edu.ng', department: 'Software Engineering', status: 'active', invitedAt: new Date('2025-01-15') },
-  { uid: '2', fullName: 'Dr. Jane Doe', email: 'doe.j@babcock.edu.ng', department: 'Computer Science', status: 'active', invitedAt: new Date('2025-02-10') },
-  { uid: '3', fullName: 'Prof. John Smith', email: 'smith.j@babcock.edu.ng', department: 'Information Technology', status: 'revoked', invitedAt: new Date('2024-11-05') },
-];
+import { useLecturers } from '../../hooks/useLecturers';
 
 export const ManageLecturers: React.FC = () => {
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
-  // We'll keep our local mock state in a reactive array if we want it to actually update on click:
-  const [lecturers, setLecturers] = useState<Lecturer[]>(MOCK_LECTURERS);
+  const { lecturers, loading, inviteLecturer, revokeLecturer } = useLecturers();
 
-  const handleInvite = (data: InviteFormData) => {
-    // TODO: Call cloud function inviteLecturer
-    toast.success(`Account created successfully for ${data.fullName}`);
+  const handleInvite = async (data: InviteFormData) => {
+    await inviteLecturer(data.fullName, data.email, data.department);
     setInviteModalOpen(false);
   };
 
-  const handleRevoke = (lecturer: Lecturer) => {
-    // Optimistic UI update
-    const isRevoking = lecturer.status === 'active';
-    setLecturers(prev => 
-      prev.map(l => l.uid === lecturer.uid ? { ...l, status: isRevoking ? 'revoked' : 'active' } : l)
-    );
-    
-    if (isRevoking) {
-      toast.error(`Access revoked for ${lecturer.fullName}`);
+  const handleRevoke = async (lecturer: Lecturer) => {
+    // Only handle revoking logic. Restoration is not in spec, we just set `status: 'revoked'`.
+    if (lecturer.status === 'active') {
+      await revokeLecturer(lecturer.uid);
     } else {
-      toast.success(`Access restored for ${lecturer.fullName}`);
+       toast.info('Restoration of revoked lecturers is not supported in the current version.');
     }
   };
 
@@ -72,14 +60,20 @@ export const ManageLecturers: React.FC = () => {
       </div>
 
       <div className="flex justify-end gap-4 mb-6">
-        <Button onClick={() => setInviteModalOpen(true)} className="flex items-center gap-2 shadow-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white rounded-xl w-full sm:w-auto justify-center">
+        <Button onClick={() => setInviteModalOpen(true)} className="flex items-center gap-2 shadow-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white rounded-xl w-full sm:w-auto justify-center">
           <UserPlus className="w-4 h-4" /> Create New Account
         </Button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-xl shadow-[var(--color-primary)]/5 border border-[var(--color-border)] p-6 relative overflow-hidden backdrop-blur-sm">
         <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-gold)]"></div>
-        <LecturerTable lecturers={lecturers} onRevoke={handleRevoke} />
+        {loading ? (
+           <div className="flex justify-center items-center py-12">
+             <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
+           </div>
+        ) : (
+           <LecturerTable lecturers={lecturers} onRevoke={handleRevoke} />
+        )}
       </div>
 
       <InviteLecturerModal 

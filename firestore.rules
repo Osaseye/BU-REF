@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isActiveLecturer() {
+      return exists(/databases/$(database)/documents/lecturers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/lecturers/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isStudent(matricNo) {
+      return request.auth.token.matricNo == matricNo;
+    }
+
+    // Students collection
+    match /students/{matricNo} {
+      allow read: if isAdmin() || isActiveLecturer() || isStudent(matricNo);
+      allow update: if isStudent(matricNo)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['matricNo','fullName','department','faculty','cgpa','level','lastUmisSyncAt']);
+      allow create: if false;  // Only created by UMIS proxy flow
+      allow delete: if false;
+    }
+
+    // Lecturers collection
+    match /lecturers/{uid} {
+      allow read: if isAdmin() || request.auth.uid == uid;
+      allow write: if isAdmin();
+    }
+
+    // Admins collection
+    match /admins/{uid} {
+      allow read: if request.auth.uid == uid;
+      allow write: if false;  // Seeded manually
+    }
+  }
+}

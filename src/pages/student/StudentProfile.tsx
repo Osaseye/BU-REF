@@ -5,29 +5,41 @@ import { ProfileForm } from '../../components/student/ProfileForm';
 import { AvatarUpload } from '../../components/student/AvatarUpload';
 import { Edit2, Save, GraduationCap, CheckCircle2, User, Phone, Mail, MapPin } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../hooks/useAuth';
+import { firestore } from '../../lib/firestore';
+import { uploadAvatar } from '../../lib/storage';
+import { toast } from 'sonner';
 
 export const StudentProfile: React.FC = () => {
-  // Mock UMIS Data
-  const umisData = {
-    matricNo: '19/0000',
-    fullName: 'Adekola John Smith',
-    department: 'Software Engineering',
-    faculty: 'Computing and Engineering Sciences',
-    cgpa: 4.56,
-    level: '400L',
-    graduationYear: '2024',
-    dob: '12-10-2002',
-    email: 'adekola@student.babcock.edu.ng',
-    phone: '(+234) 801 234 5678'
-  };
+  const { user } = useAuth();
+  const profile = user?.profile as any; // Cast safely or define correct type flow
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
+  if (!profile) return null;
+
   const handleProfileUpdate = async (data: any) => {
-    console.log('Update profile payload:', { ...data, avatarFile });
-    // TODO: Connect to Firestore updates
-    setIsEditing(false);
+    try {
+      let photoURL = profile.photoURL;
+
+      if (avatarFile) {
+         toast.info("Uploading avatar...");
+         photoURL = await uploadAvatar(profile.matricNo, avatarFile);
+      }
+
+      await firestore.updateStudentProfile(profile.matricNo, {
+        ...data,
+        photoURL,
+        profileComplete: !!(photoURL && data.projectTitle && data.supervisorName && data.contactEmail)
+      });
+      
+      toast.success('Profile updated successfully');
+      setIsEditing(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update profile');
+      console.error(error);
+    }
   };
 
   const handleAvatarUpload = (file: File) => {
@@ -58,17 +70,17 @@ export const StudentProfile: React.FC = () => {
             </div>
             
             <div className="mt-8 relative z-10 mb-6">
-              <AvatarUpload initials={umisData.fullName.charAt(0)} onUpload={handleAvatarUpload} size="lg" />
+              <AvatarUpload initialUrl={profile.photoURL} initials={profile.fullName.charAt(0)} onUpload={handleAvatarUpload} size="lg" />
             </div>
             
             <div className="text-center relative z-10 mb-6 w-full">
               <h2 className="text-2xl font-extrabold font-serif text-[var(--color-primary)] tracking-tight">
-                {umisData.fullName}
+                {profile.fullName}
               </h2>
               <div className="mt-2 flex items-center justify-center gap-3">
                 <div className="w-8 h-[2px] bg-gradient-to-r from-transparent to-[var(--color-gold)]"></div>
                 <p className="text-xs text-[var(--color-gold)] uppercase tracking-[0.1em] font-bold">
-                  {umisData.matricNo}
+                  {profile.matricNo}
                 </p>
                 <div className="w-8 h-[2px] bg-gradient-to-l from-transparent to-[var(--color-gold)]"></div>
               </div>
@@ -107,27 +119,23 @@ export const StudentProfile: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-[var(--color-primary)]" /> Program of Study</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{umisData.department}</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.department}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-[var(--color-primary)]" /> Faculty / School</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{umisData.faculty}</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.faculty}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-[var(--color-primary)]" /> Current Level</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{umisData.level}</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.level}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-[var(--color-primary)]" /> Graduation Year</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{umisData.graduationYear}</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.graduationYear || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-[var(--color-primary)]" /> Academic Standing (CGPA)</p>
-                <p className="text-sm font-bold text-[var(--color-primary)]">{umisData.cgpa}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-[var(--color-primary)]" /> Date of Birth</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{umisData.dob}</p>
+                <p className="text-sm font-bold text-[var(--color-primary)]">{profile.cgpa}</p>
               </div>
             </div>
           </div>
@@ -159,36 +167,42 @@ export const StudentProfile: React.FC = () => {
             
             {isEditing ? (
               <div className="animate-in fade-in slide-in-from-top-2">
-                 <ProfileForm onSubmit={handleProfileUpdate} />
+                 <ProfileForm initialData={profile} onSubmit={handleProfileUpdate} />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 animate-in fade-in">
                 <div>
                   <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Mail className="w-3 h-3" /> Contact Email</p>
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all">{umisData.email}</p>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all">{profile.contactEmail || 'Not specified'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Phone className="w-3 h-3" /> Phone Number</p>
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{umisData.phone}</p>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.phoneNumber || 'Not specified'}</p>
                 </div>
                 <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
                     <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><MapPin className="w-3 h-3" /> Project Title</p>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">AI-driven Reference System</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.projectTitle || 'Not specified'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><User className="w-3 h-3" /> Supervisor Name</p>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">Dr. John Doe</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profile.supervisorName || 'Not specified'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Mail className="w-3 h-3" /> LinkedIn URL</p>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all text-[var(--color-primary)] underline">https://linkedin.com/in/adekolasmith</p>
+                    {profile.linkedInURL ? (
+                      <a href={profile.linkedInURL} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold break-all text-[var(--color-primary)] underline">
+                        {profile.linkedInURL}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">Not specified</p>
+                    )}
                   </div>
                 </div>
                 <div className="col-span-1 md:col-span-2">
                   <p className="text-xs text-[var(--color-text-secondary)] mb-2 flex items-center gap-1.5"><User className="w-3 h-3" /> Short Bio</p>
                   <p className="text-sm text-[var(--color-text-primary)] bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    A passionate final-year software engineering student dedicated to solving real-world problems.
+                    {profile.bio || 'No bio provided yet.'}
                   </p>
                 </div>
               </div>

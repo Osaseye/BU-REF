@@ -1,30 +1,31 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, GraduationCap, Briefcase, Mail, Phone, Globe, AlignLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Briefcase, Mail, Phone, Globe, AlignLeft, CheckCircle2, Loader2 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { useStudent } from '../../hooks/useStudent';
 
 export const StudentDetail: React.FC = () => {
   const { matricNo } = useParams<{ matricNo: string }>();
   const navigate = useNavigate();
+  const { student: profileData, loading, error } = useStudent(matricNo);
 
-  // Mock full profile data
-  const profileData = {
-    matricNo: matricNo || '19/0000',
-    fullName: 'Adekola John Smith',
-    department: 'Software Engineering',
-    faculty: 'Computing and Engineering Sciences',
-    cgpa: 4.56,
-    level: '400L',
-    graduationYear: '2024',
-    projectTitle: 'AI-driven Reference System for Babcock University',
-    supervisorName: 'Dr. Adegboola',
-    contactEmail: 'adekola.js@gmail.com',
-    phoneNumber: '+234 800 000 0000',
-    linkedInURL: 'https://www.linkedin.com/in/adekolajs',
-    bio: 'Passionate software engineering student with a focus on web technologies and applied AI. Eager to solve real-world problems.',
-    profileComplete: true,
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[60vh]">
+        <Loader2 className="w-10 h-10 animate-spin text-[var(--color-primary)]" />
+      </div>
+    );
+  }
+
+  if (error || !profileData) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[60vh] gap-4">
+        <p className="text-lg text-[var(--color-danger)] font-semibold">{error || 'Student not found'}</p>
+        <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -47,8 +48,12 @@ export const StudentDetail: React.FC = () => {
             <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-64 h-64 bg-[var(--color-primary)]/5 rounded-full blur-3xl pointer-events-none"></div>
             
             <div className="mt-4 relative z-10 mb-6">
-               <div className="w-32 h-32 bg-white text-[var(--color-primary)] rounded-full border-4 border-white shadow-lg flex items-center justify-center font-bold font-serif text-5xl">
-                 {profileData.fullName.charAt(0)}
+               <div className="w-32 h-32 bg-white text-[var(--color-primary)] rounded-full border-4 border-white shadow-lg flex items-center justify-center font-bold font-serif text-5xl overflow-hidden">
+                 {profileData.photoURL ? (
+                    <img src={profileData.photoURL} alt={profileData.fullName} className="w-full h-full object-cover" />
+                 ) : (
+                    profileData.fullName.charAt(0)
+                 )}
                </div>
             </div>
             
@@ -131,23 +136,38 @@ export const StudentDetail: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Mail className="w-3 h-3" /> Contact Email</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all"><a href={`mailto:${profileData.contactEmail}`} className="hover:underline">{profileData.contactEmail}</a></p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all">{profileData.contactEmail ? <a href={`mailto:${profileData.contactEmail}`} className="hover:underline">{profileData.contactEmail}</a> : 'Not specified'}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Phone className="w-3 h-3" /> Phone Number</p>
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profileData.phoneNumber}</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profileData.phoneNumber || 'Not specified'}</p>
               </div>
               <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div>
                     <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Briefcase className="w-3 h-3" /> Project Title</p>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profileData.projectTitle}</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profileData.projectTitle || 'Not specified'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><GraduationCap className="w-3 h-3" /> Supervisor Name</p>
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profileData.supervisorName}</p>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">{profileData.supervisorName || 'Not specified'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[var(--color-text-secondary)] mb-1 flex items-center gap-1.5"><Globe className="w-3 h-3" /> LinkedIn URL</p>
+                    {profileData.linkedInURL ? (
+                      <a href={profileData.linkedInURL} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold break-all text-[var(--color-primary)] underline">
+                        {profileData.linkedInURL}
+                      </a>
+                    ) : (
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">Not specified</p>
+                    )}
+                  </div>
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <p className="text-xs text-[var(--color-text-secondary)] mb-2 flex items-center gap-1.5"><AlignLeft className="w-3 h-3" /> Short Bio</p>
+                <p className="text-sm text-[var(--color-text-primary)] bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  {profileData.bio || 'This student has not provided a biography yet.'}
+                </p>
+              </div>
                     {profileData.linkedInURL ? (
                       <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all text-[var(--color-primary)] underline">
                         <a href={profileData.linkedInURL} target="_blank" rel="noreferrer">{profileData.linkedInURL.replace('https://www.', '')}</a>

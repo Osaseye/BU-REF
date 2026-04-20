@@ -26,7 +26,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ initialData, onSubmit 
   const {
     register,
     handleSubmit,
-    formState: { errors, /* isSubmitting, isDirty */ },
+    formState: { errors, isSubmitting },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: initialData || {
@@ -94,9 +94,8 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ initialData, onSubmit 
       </div>
 
       <div className="flex justify-end border-t border-[var(--color-border)] pt-4">
-        {/* We would use `isSubmitting` and `isDirty` here normally to disable */}
-        <Button type="submit" variant="primary">
-          Save Changes
+        <Button type="submit" variant="primary" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
     </form>
