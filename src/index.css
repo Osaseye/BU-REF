@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary:        #063A84;   /* Babcock Blue */
+    --color-primary-light:  #154B9A;   /* Mid Blue */
+    --color-primary-muted:  #E6EFFB;   /* Blue tint background */
+    --color-gold:           #C39113;   /* Babcock Gold */
+    --color-gold-light:     #FDF4DC;   /* Gold tint */
+    --color-surface:        #FFFFFF;
+    --color-background:     #F7F9FC;
+    --color-border:         #E2E8F0;
+    --color-text-primary:   #0F172A;
+    --color-text-secondary: #475569;
+    --color-text-muted:     #94A3B8;
+    --color-danger:         #C0392B;
+    --color-danger-light:   #FDECEA;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+  }
+}
