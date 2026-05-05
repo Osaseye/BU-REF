@@ -5,10 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ShieldCheck, Mail, Lock } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
+import { auth, db } from '../../lib/firebase';
+import { getAuthErrorMessage } from '../../lib/authErrors';
 
 const adminLoginSchema = z.object({
-  email: z.string().email('Invalid email format').endsWith('@babcock.edu.ng', 'Must be a valid Babcock email'),
+  email: z.string().email('Invalid email format'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -26,9 +31,23 @@ export const AdminLogin: React.FC = () => {
   });
 
   const onSubmit = async (data: AdminLoginFormData) => {
-    console.log('Admin Login:', data);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    navigate('/admin/dashboard');
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      const uid = userCredential.user.uid;
+
+      const adminSnap = await getDoc(doc(db, 'admins', uid));
+      if (!adminSnap.exists()) {
+        await auth.signOut();
+        throw new Error('Access denied. No admin account found for this user.');
+      }
+
+      toast.success('Welcome back, Admin.');
+      navigate('/admin/dashboard', { replace: true });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(getAuthErrorMessage(err, 'Invalid credentials'));
+      auth.signOut();
+    }
   };
 
   return (
@@ -54,7 +73,7 @@ export const AdminLogin: React.FC = () => {
           <Input
             label="Admin Email"
             type="email"
-            placeholder="admin.js@babcock.edu.ng"
+            placeholder="admin@babcock.edu.ng"
             error={errors.email?.message}
             className="pl-10"
             {...register('email')}
@@ -86,7 +105,6 @@ export const AdminLogin: React.FC = () => {
         </div>
       </form>
       
-      {/* Decorative blobs for the background context indicating admin zone */}
       <div className="absolute top-0 right-0 -mr-24 -mt-24 w-48 h-48 bg-red-600/10 rounded-full blur-3xl pointer-events-none z-0"></div>
     </div>
   );

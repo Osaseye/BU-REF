@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { ProfileForm } from '../../components/student/ProfileForm';
 import { AvatarUpload } from '../../components/student/AvatarUpload';
@@ -9,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { firestore } from '../../lib/firestore';
 import { uploadAvatar } from '../../lib/storage';
 import { toast } from 'sonner';
+import { getUserFacingErrorMessage } from '../../lib/authErrors';
 
 export const StudentProfile: React.FC = () => {
   const { user } = useAuth();
@@ -37,7 +37,7 @@ export const StudentProfile: React.FC = () => {
       toast.success('Profile updated successfully');
       setIsEditing(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile');
+      toast.error(getUserFacingErrorMessage(error, 'Failed to update profile. Please try again.'));
       console.error(error);
     }
   };

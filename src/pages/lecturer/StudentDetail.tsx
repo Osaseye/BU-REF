@@ -162,24 +162,11 @@ export const StudentDetail: React.FC = () => {
                     )}
                   </div>
               </div>
-              <div className="col-span-1 md:col-span-2">
-                <p className="text-xs text-[var(--color-text-secondary)] mb-2 flex items-center gap-1.5"><AlignLeft className="w-3 h-3" /> Short Bio</p>
-                <p className="text-sm text-[var(--color-text-primary)] bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  {profileData.bio || 'This student has not provided a biography yet.'}
-                </p>
-              </div>
-                    {profileData.linkedInURL ? (
-                      <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all text-[var(--color-primary)] underline">
-                        <a href={profileData.linkedInURL} target="_blank" rel="noreferrer">{profileData.linkedInURL.replace('https://www.', '')}</a>
-                      </p>
-                    ) : ( <p className="text-sm font-semibold text-[var(--color-text-primary)]">N/A</p> )}
-                  </div>
-              </div>
               <div className="col-span-1 md:col-span-2 border-t border-[var(--color-border)] pt-6 mt-2">
                 <p className="text-xs text-[var(--color-text-secondary)] mb-2 flex items-center gap-1.5"><AlignLeft className="w-3 h-3" /> Short Bio</p>
                 <p className="text-sm text-[var(--color-text-primary)] bg-gray-50/50 p-4 rounded-xl border border-gray-100/50 relative">
                   <span className="absolute top-2 left-2 text-4xl text-[var(--color-primary)]/10 font-serif opacity-50">"</span>
-                  <span className="relative z-10 leading-relaxed block pl-4">{profileData.bio}</span>
+                  <span className="relative z-10 leading-relaxed block pl-4">{profileData.bio || 'This student has not provided a biography yet.'}</span>
                 </p>
               </div>
             </div>

@@ -12,7 +12,7 @@ export const ManageLecturers: React.FC = () => {
   const { lecturers, loading, inviteLecturer, revokeLecturer } = useLecturers();
 
   const handleInvite = async (data: InviteFormData) => {
-    await inviteLecturer(data.fullName, data.email, data.department);
+    await inviteLecturer(data.fullName, data.email, data.department, data.password);
     setInviteModalOpen(false);
   };
 

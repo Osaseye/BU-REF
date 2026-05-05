@@ -1,11 +1,12 @@
-import { auth, db } from "./firebase";
-import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where, serverTimestamp } from "firebase/firestore";
-import type { StudentProfile, LecturerProfile, AdminProfile } from "../types";
+import { db } from "./firebase";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import type { StudentProfile, LecturerProfile, AdminProfile, SyncMeta } from "../types";
 
 export const firestore = {
   // Use carefully - prefer specific update functions
   getStudent: async (matricNo: string) => {
-    const docRef = doc(db, "students", matricNo);
+    const safeId = matricNo.replace(/\//g, '-');
+    const docRef = doc(db, "students", safeId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data() as StudentProfile;
@@ -14,7 +15,8 @@ export const firestore = {
   },
 
   updateStudentProfile: async (matricNo: string, data: Partial<StudentProfile>) => {
-    const docRef = doc(db, "students", matricNo);
+    const safeId = matricNo.replace(/\//g, '-');
+    const docRef = doc(db, "students", safeId);
     await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
   },
 
@@ -32,6 +34,15 @@ export const firestore = {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data() as AdminProfile;
+    }
+    return null;
+  },
+
+  getLastSyncMeta: async (): Promise<SyncMeta | null> => {
+    const docRef = doc(db, "meta", "lastSync");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as SyncMeta;
     }
     return null;
   },

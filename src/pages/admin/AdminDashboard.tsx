@@ -1,31 +1,75 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, Shield, Users, UserPlus, Settings, CheckCircle2, BookOpen } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, Filter, Shield, Users, CheckCircle2, BookOpen, RefreshCw, Clock, AlertCircle } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '../../components/ui/Badge';
-
-// Global mock list of all students synced from UMIS
-const MOCK_GLOBAL_STUDENTS = [
-  { matricNo: '19/0001', fullName: 'Adekola John Smith', department: 'Software Engineering', cgpa: 4.56, level: '400L', profileComplete: true },
-  { matricNo: '19/0002', fullName: 'Chukwudi Favour', department: 'Computer Science', cgpa: 3.80, level: '400L', profileComplete: false },
-  { matricNo: '19/0003', fullName: 'Fatima Bello', department: 'Information Technology', cgpa: 4.12, level: '400L', profileComplete: true },
-  { matricNo: '19/0004', fullName: 'David Ojo', department: 'Software Engineering', cgpa: 3.95, level: '400L', profileComplete: true },
-  { matricNo: '19/0005', fullName: 'Sarah Johnson', department: 'Information Systems', cgpa: 4.80, level: '400L', profileComplete: true },
-  { matricNo: '19/0006', fullName: 'Michael Abiodun', department: 'Computer Technology', cgpa: 3.45, level: '400L', profileComplete: false },
-];
+import { httpsCallable } from 'firebase/functions';
+import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
+import { toast } from 'sonner';
+import { functions, db } from '../../lib/firebase';
+import { getUserFacingErrorMessage } from '../../lib/authErrors';
+import { firestore } from '../../lib/firestore';
+import type { StudentProfile, SyncMeta } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
 
-  const departments = useMemo(() => {
-    const deps = new Set(MOCK_GLOBAL_STUDENTS.map(s => s.department));
-    return ['All', ...Array.from(deps)];
+  // ── Live students from Firestore ───────────────────────────────────────────
+  const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'students'), (snap) => {
+      setStudents(snap.docs.map(d => d.data() as StudentProfile));
+      setStudentsLoading(false);
+    });
+    return unsub;
   }, []);
 
-  const filteredStudents = MOCK_GLOBAL_STUDENTS.filter(student => {
+  // ── Sync metadata ──────────────────────────────────────────────────────────
+  const [syncMeta, setSyncMeta] = useState<SyncMeta | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    firestore.getLastSyncMeta().then(setSyncMeta);
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const bulkSync = httpsCallable(functions, 'bulkSyncStudentsFromUmis');
+      const result = await bulkSync({});
+      const { synced, failed } = result.data as { synced: number; failed: number };
+      const meta = await firestore.getLastSyncMeta();
+      setSyncMeta(meta);
+      if (failed === 0) {
+        toast.success(`Sync complete — ${synced} students updated.`);
+      } else {
+        toast.warning(`Sync finished — ${synced} synced, ${failed} failed.`);
+      }
+    } catch (err: any) {
+      toast.error(getUserFacingErrorMessage(err, 'Sync failed. Please try again.'));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const formatSyncTime = (ts: unknown): string => {
+    if (!ts) return 'Never';
+    if (ts instanceof Timestamp) return ts.toDate().toLocaleString();
+    if (ts instanceof Date) return ts.toLocaleString();
+    return 'Unknown';
+  };
+
+  const departments = useMemo(() => {
+    const deps = new Set(students.map(s => s.department));
+    return ['All', ...Array.from(deps)];
+  }, [students]);
+
+  const filteredStudents = students.filter(student => {
     const matchesSearch = student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           student.matricNo.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDept = selectedDepartment === 'All' || student.department === selectedDepartment;
@@ -55,6 +99,50 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* UMIS Sync Card */}
+      <div className="bg-white rounded-2xl shadow-xl shadow-[var(--color-primary)]/5 border border-[var(--color-border)] p-5 md:p-6 relative overflow-hidden backdrop-blur-sm">
+        <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-gold)]" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-1">
+          <div>
+            <h3 className="text-sm font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-[var(--color-primary)]" />
+              Student Data Sync
+            </h3>
+            <div className="mt-1 flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>Last sync: <span className="font-semibold">{formatSyncTime(syncMeta?.lastSyncAt)}</span></span>
+              {syncMeta && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span>{syncMeta.studentCount.toLocaleString()} students</span>
+                  <span className="text-gray-300">·</span>
+                  <Badge
+                    variant={syncMeta.status === 'success' ? 'success' : syncMeta.status === 'partial' ? 'warning' : 'error'}
+                    className="text-[10px] px-2 py-0.5"
+                  >
+                    {syncMeta.status}
+                  </Badge>
+                </>
+              )}
+            </div>
+            {!syncMeta && (
+              <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                No sync has been run yet. Click &quot;Sync Now&quot; to populate the repository.
+              </p>
+            )}
+          </div>
+          <Button
+            onClick={handleSync}
+            disabled={syncing}
+            className="shrink-0 flex items-center gap-2 bg-[var(--color-primary)] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[var(--color-primary-light)] transition-colors disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing…' : 'Sync Now'}
+          </Button>
+        </div>
+      </div>
+
       {/* Quick System Stats - Waiting for Firebase Integration */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-white rounded-2xl shadow-xl shadow-[var(--color-primary)]/5 border border-[var(--color-border)] p-5 md:p-6 relative overflow-hidden backdrop-blur-sm">
@@ -64,7 +152,9 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs md:text-sm text-[var(--color-text-secondary)] font-bold uppercase tracking-wider">Total Synced</p>
-              <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--color-text-primary)]">0</h2>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--color-text-primary)]">
+                {studentsLoading ? '—' : students.length.toLocaleString()}
+              </h2>
             </div>
           </div>
         </div>
@@ -76,7 +166,9 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs md:text-sm text-[var(--color-text-secondary)] font-bold uppercase tracking-wider">Cleared Profiles</p>
-              <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--color-text-primary)]">0</h2>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--color-text-primary)]">
+                {studentsLoading ? '—' : students.filter(s => s.profileComplete).length.toLocaleString()}
+              </h2>
             </div>
           </div>
         </div>

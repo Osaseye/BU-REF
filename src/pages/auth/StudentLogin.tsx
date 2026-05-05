@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useUmisAuth } from '../../hooks/useUmisAuth';
 import { toast } from 'sonner';
+import { getUserFacingErrorMessage } from '../../lib/authErrors';
 
 const studentLoginSchema = z.object({
   matricNo: z.string().regex(/^\d{2}\/\d{4}$/, 'Matric Number must be in the format YY/XXXX (e.g., 22/0206)'),
@@ -34,7 +35,7 @@ export const StudentLogin: React.FC = () => {
       toast.success('Login Successful');
       navigate('/student/profile', { replace: true });
     } catch (err: any) {
-      toast.error(err.message || 'Login failed');
+      toast.error(getUserFacingErrorMessage(err, 'Login failed. Please try again.'));
     }
   };
 
@@ -86,7 +87,7 @@ export const StudentLogin: React.FC = () => {
           {...register('password')}
         />
 
-        <div className="pt-2">
+        <div className="pt-2 space-y-3">
           <Button type="submit" fullWidth disabled={loading}>
             {loading ? 'Authenticating...' : 'Sign In'}
           </Button>

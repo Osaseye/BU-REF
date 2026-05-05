@@ -1,9 +1,10 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /students/{matricNo}/avatar.jpg {
+    match /students/{safeId}/{fileName} {
       allow read: if request.auth != null;
-      allow write: if request.auth.token.matricNo == matricNo
+      allow write: if request.auth.token.matricNo.replace('/', '-') == safeId
+        && fileName.matches('avatar\\..*')
         && request.resource.size < 2 * 1024 * 1024    // max 2MB
         && request.resource.contentType.matches('image/.*');
     }

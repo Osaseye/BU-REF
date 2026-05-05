@@ -3,14 +3,32 @@ import { LogOut, Lock } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { UpdatePasswordModal } from './UpdatePasswordModal';
+import { signOut } from 'firebase/auth';
+import { toast } from 'sonner';
+import { auth } from '../../lib/firebase';
+import { useAuth } from '../../hooks/useAuth';
+import { getUserFacingErrorMessage } from '../../lib/authErrors';
 
 export const Topbar: React.FC = () => {
   const navigate = useNavigate();
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
+  const { user } = useAuth();
 
-  const handleLogout = () => {
-    // Basic mock logout for now
-    navigate('/student/login');
+  const handleLogout = async () => {
+    try {
+      const destination = user?.role === 'admin'
+        ? '/login/admin'
+        : user?.role === 'lecturer'
+          ? '/login/staff'
+          : '/login/student';
+
+      await signOut(auth);
+      navigate(destination, { replace: true });
+      toast.success('You have been logged out.');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(getUserFacingErrorMessage(error, 'Logout failed. Please try again.'));
+    }
   };
 
   return (

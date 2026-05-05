@@ -4,10 +4,13 @@ import { AuthLayout } from '../components/layout/AuthLayout';
 import { AppShell } from '../components/layout/AppShell';
 import { NotFound } from '../pages/NotFound';
 import { LoadingPage } from '../pages/Loading';
+import { useAuth } from '../hooks/useAuth';
+import type { UserRole } from '../types';
 
 const StudentLogin = React.lazy(() => import('../pages/auth/StudentLogin').then(m => ({ default: m.StudentLogin })));
 const StaffLogin = React.lazy(() => import('../pages/auth/StaffLogin').then(m => ({ default: m.StaffLogin })));
 const AdminLogin = React.lazy(() => import('../pages/auth/AdminLogin').then(m => ({ default: m.AdminLogin })));
+const AdminRegister = React.lazy(() => import('../pages/auth/AdminRegister').then(m => ({ default: m.AdminRegister })));
 const StudentProfile = React.lazy(() => import('../pages/student/StudentProfile').then(m => ({ default: m.StudentProfile })));
 const LecturerDashboard = React.lazy(() => import('../pages/lecturer/LecturerDashboard').then(m => ({ default: m.LecturerDashboard })));
 const StudentDetail = React.lazy(() => import('../pages/lecturer/StudentDetail').then(m => ({ default: m.StudentDetail })));
@@ -19,6 +22,49 @@ const withSuspense = (Element: React.FC) => (
     <Element />
   </Suspense>
 );
+
+const getRoleHome = (role: UserRole) => {
+  switch (role) {
+    case 'admin':
+      return '/admin/dashboard';
+    case 'lecturer':
+      return '/lecturer/dashboard';
+    case 'student':
+      return '/student/profile';
+  }
+};
+
+const getLoginRoute = (role: UserRole) => {
+  switch (role) {
+    case 'admin':
+      return '/login/admin';
+    case 'lecturer':
+      return '/login/staff';
+    case 'student':
+      return '/login/student';
+  }
+};
+
+const RequireRole: React.FC<{ allowedRoles: UserRole[]; children: React.ReactElement }> = ({
+  allowedRoles,
+  children,
+}) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingPage />;
+  }
+
+  if (!user) {
+    return <Navigate to={getLoginRoute(allowedRoles[0])} replace />;
+  }
+
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to={getRoleHome(user.role)} replace />;
+  }
+
+  return children;
+};
 
 export const router = createBrowserRouter([
   {
@@ -39,15 +85,38 @@ export const router = createBrowserRouter([
     element: <LoadingPage />,
   },
   {
+    // ⚠️  TEMPORARY — delete after first admin is created
+    path: '/admin/register',
+    element: withSuspense(AdminRegister),
+  },
+  {
     path: '/',
     element: <AppShell />,
     children: [
-      { path: 'student/profile', element: withSuspense(StudentProfile) },
-      { path: 'lecturer/dashboard', element: withSuspense(LecturerDashboard) },
-      { path: 'lecturer/student/:matricNo', element: withSuspense(StudentDetail) },
-      { path: 'admin/dashboard', element: withSuspense(AdminDashboard) },
-      { path: 'admin/student/:matricNo', element: withSuspense(StudentDetail) },
-      { path: 'admin/lecturers', element: withSuspense(ManageLecturers) },
+      {
+        path: 'student/profile',
+        element: <RequireRole allowedRoles={['student']}>{withSuspense(StudentProfile)}</RequireRole>,
+      },
+      {
+        path: 'lecturer/dashboard',
+        element: <RequireRole allowedRoles={['lecturer']}>{withSuspense(LecturerDashboard)}</RequireRole>,
+      },
+      {
+        path: 'lecturer/student/:matricNo',
+        element: <RequireRole allowedRoles={['lecturer']}>{withSuspense(StudentDetail)}</RequireRole>,
+      },
+      {
+        path: 'admin/dashboard',
+        element: <RequireRole allowedRoles={['admin']}>{withSuspense(AdminDashboard)}</RequireRole>,
+      },
+      {
+        path: 'admin/student/:matricNo',
+        element: <RequireRole allowedRoles={['admin']}>{withSuspense(StudentDetail)}</RequireRole>,
+      },
+      {
+        path: 'admin/lecturers',
+        element: <RequireRole allowedRoles={['admin']}>{withSuspense(ManageLecturers)}</RequireRole>,
+      },
     ],
   },
   {

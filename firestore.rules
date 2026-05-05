@@ -11,18 +11,29 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/lecturers/$(request.auth.uid)).data.status == 'active';
     }
 
-    function isStudent(matricNo) {
-      return request.auth.token.matricNo == matricNo;
+    function isStudent(safeId) {
+      return request.auth.token.matricNo.replace('/', '-') == safeId;
     }
 
     // Students collection
-    match /students/{matricNo} {
-      allow read: if isAdmin() || isActiveLecturer() || isStudent(matricNo);
-      allow update: if isStudent(matricNo)
+    match /students/{safeId} {
+      allow read: if isAdmin() || isActiveLecturer() || isStudent(safeId);
+      allow update: if isStudent(safeId)
         && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['matricNo','fullName','department','faculty','cgpa','level','lastUmisSyncAt']);
       allow create: if false;  // Only created by UMIS proxy flow
       allow delete: if false;
+
+      // Private subcollection — password hashes. No client access whatsoever.
+      match /private/{document} {
+        allow read, write: if false;
+      }
+    }
+
+    // Sync metadata — admin read-only
+    match /meta/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // Lecturers collection

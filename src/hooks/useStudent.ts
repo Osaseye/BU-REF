@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { getUserFacingErrorMessage } from '../lib/authErrors';
 import type { StudentProfile } from '../types';
 
 export const useStudent = (matricNo?: string) => {
@@ -16,8 +17,30 @@ export const useStudent = (matricNo?: string) => {
     const fetchStudent = async () => {
       if (!matricNo) return;
       setLoading(true);
+
+      // Intercept purely mock data for UI demonstrations (used in AdminDashboard)
+      if (['19/0001', '19/0002', '19/0003', '19/0004', '19/0005', '19/0006'].includes(matricNo)) {
+        setStudent({
+          matricNo,
+          fullName: 'Demo Student ' + matricNo,
+          department: 'Computer Science',
+          faculty: 'Computing & Engineering Sciences',
+          cgpa: 4.50,
+          level: '400L',
+          contactEmail: 'demo@student.babcock.edu.ng',
+          phoneNumber: '08000000000',
+          projectTitle: 'Demo AI Project',
+          supervisorName: 'Dr. Expert',
+          profileComplete: true,
+          bio: 'This is a mock profile for demonstration purposes.',
+        } as StudentProfile);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const studentRef = doc(db, 'students', matricNo);
+        const safeId = matricNo.replace(/\//g, '-');
+        const studentRef = doc(db, 'students', safeId);
         unsubscribe = onSnapshot(studentRef, (docSnap) => {
           if (docSnap.exists()) {
             setStudent(docSnap.data() as StudentProfile);
@@ -27,7 +50,7 @@ export const useStudent = (matricNo?: string) => {
           setLoading(false);
         });
       } catch (err: any) {
-        setError(err.message);
+        setError(getUserFacingErrorMessage(err, 'Unable to load student details.'));
         setLoading(false);
       }
     };
@@ -61,7 +84,7 @@ export const useStudent = (matricNo?: string) => {
       });
       setStudents(results);
     } catch (err: any) {
-      setError(err.message);
+      setError(getUserFacingErrorMessage(err, 'Unable to search students right now.'));
     } finally {
       setLoading(false);
     }

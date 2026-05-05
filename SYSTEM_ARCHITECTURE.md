@@ -25,7 +25,7 @@ The system is built on a serverless architecture using a decoupled frontend and 
 ## 2. Authentication Flow
 
 Authentication is split into two distinct mechanisms to handle the different types of users (Students vs. Staff/Admins).
-
+    
 ### 2.1 Student Authentication (UMIS Integration)
 Instead of creating new passwords, students authenticate using their existing Babcock UMIS credentials.
 

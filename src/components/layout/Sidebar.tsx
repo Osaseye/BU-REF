@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { User, Users, BookOpen } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 export const Sidebar: React.FC = () => {
-  // In a real app, this would come from AuthContext
-  const role = 'student'; // mock role
+  const { user } = useAuth();
+  const role = user?.role;
 
   return (
     <aside className="w-64 bg-white border-r border-[var(--color-border)] hidden md:flex flex-col">

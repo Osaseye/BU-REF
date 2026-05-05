@@ -8,7 +8,7 @@ export interface Lecturer {
   email: string;
   department?: string;
   status: 'active' | 'revoked';
-  invitedAt: Date;
+  invitedAt?: { toDate: () => Date } | null;
 }
 
 interface LecturerTableProps {
@@ -64,7 +64,7 @@ export const LecturerTable: React.FC<LecturerTableProps> = ({ lecturers, onRevok
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-secondary)]">
-                {lecturer.invitedAt.toLocaleDateString()}
+                {lecturer.invitedAt?.toDate?.().toLocaleDateString() ?? 'N/A'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <Button 

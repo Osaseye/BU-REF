@@ -9,6 +9,7 @@ import { auth, db } from '../../lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
+import { getAuthErrorMessage } from '../../lib/authErrors';
 
 const staffLoginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -63,7 +64,7 @@ export const StaffLogin: React.FC = () => {
       navigate(`/${role}/dashboard`, { replace: true });
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Invalid credentials');
+      toast.error(getAuthErrorMessage(err, 'Invalid credentials'));
       auth.signOut();
     }
   };
@@ -94,7 +95,7 @@ export const StaffLogin: React.FC = () => {
           {...register('password')}
         />
 
-        <div className="pt-2">
+        <div className="pt-2 space-y-3">
           <Button type="submit" fullWidth disabled={isSubmitting}>
             {isSubmitting ? 'Authenticating...' : 'Sign In'}
           </Button>

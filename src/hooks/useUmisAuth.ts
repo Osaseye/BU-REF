@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { signInWithCustomToken } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
+import { toast } from 'sonner';
 import { auth, functions } from '../lib/firebase';
+import { getUserFacingErrorMessage } from '../lib/authErrors';
 import type { UmisStudentData } from '../types';
+
+// How long (ms) to wait for the UMIS proxy before assuming it is down
+const UMIS_TIMEOUT_MS = 8_000;
 
 export const useUmisAuth = () => {
   const [loading, setLoading] = useState(false);
@@ -13,40 +18,56 @@ export const useUmisAuth = () => {
     setError(null);
 
     try {
-      // 1. Call proxy
       const proxyUrl = import.meta.env.VITE_UMIS_PROXY_URL;
       if (!proxyUrl) {
-        throw new Error('UMIS Proxy URL is not configured.');
+        throw new Error('UMIS Proxy URL is not configured. Check your environment variables.');
       }
 
-      const response = await fetch(`${proxyUrl}/auth.php`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ matricNo, password }),
-      });
+      // ── Attempt 1: live UMIS verification ─────────────────────────────────
+      let token: string | null = null;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to authenticate with UMIS');
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), UMIS_TIMEOUT_MS);
+
+        const response = await fetch(`${proxyUrl}/auth.php`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matricNo, password }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const umisData: UmisStudentData = await response.json();
+
+          // Pass password so Cloud Function can cache the hash for future offline logins
+          const createStudentSession = httpsCallable(functions, 'createStudentSession');
+          const result = await createStudentSession({ matricNo, umisData, password });
+          token = (result.data as { token: string }).token;
+        }
+      } catch (umisError: any) {
+        // AbortError = timeout; other network errors also land here
+        const isTimeout = umisError?.name === 'AbortError';
+        console.warn(isTimeout ? 'UMIS timed out' : 'UMIS unreachable:', umisError?.message);
       }
 
-      const umisData: UmisStudentData = await response.json();
+      // ── Attempt 2: offline fallback (cached password hash) ────────────────
+      if (!token) {
+        const verifyStudentOffline = httpsCallable(functions, 'verifyStudentOffline');
+        const result = await verifyStudentOffline({ matricNo, password });
+        token = (result.data as { token: string }).token;
 
-      // 2. Call Cloud Function
-      const createStudentSession = httpsCallable(functions, 'createStudentSession');
-      const result = await createStudentSession({ matricNo, umisData });
-      const { token } = result.data as { token: string };
+        toast.warning('UMIS is currently unavailable — signed in using cached credentials.');
+      }
 
-      // 3. Authenticate with Firebase
+      // ── Establish Firebase session ─────────────────────────────────────────
       await signInWithCustomToken(auth, token);
-      
-      // Success! AuthContext will pick up the state change
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'An unexpected error occurred during login');
-      throw err;
+      const message = getUserFacingErrorMessage(err, 'Login failed. Please try again.');
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
