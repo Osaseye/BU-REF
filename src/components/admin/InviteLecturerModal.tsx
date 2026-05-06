@@ -5,6 +5,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 
+export const BABCOCK_SCHOOLS = [
+  'Basic & Applied Sciences',
+  'Communication & Media Studies',
+  'Computing & Applied Sciences',
+  'Engineering',
+  'Environmental Sciences',
+  'Health Sciences',
+  'Law',
+  'Management Sciences',
+  'Postgraduate School',
+  'Social & Management Sciences',
+] as const;
+
 // Mock modal component, replace with Radix UI Dialog or similar later
 interface InviteLecturerModalProps {
   isOpen: boolean;
@@ -15,7 +28,7 @@ interface InviteLecturerModalProps {
 const inviteSchema = z.object({
   fullName: z.string().min(1, 'Full name is required'),
   email: z.string().email('Valid email is required'),
-  department: z.string().min(1, 'Department is required'),
+  school: z.string().min(1, 'School / Faculty is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -56,12 +69,23 @@ export const InviteLecturerModal: React.FC<InviteLecturerModalProps> = ({ isOpen
             {...register('email')}
             error={errors.email?.message}
           />
-          <Input 
-            label="Department" 
-            placeholder="e.g. Computer Science" 
-            {...register('department')}
-            error={errors.department?.message}
-          />
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">School / Faculty</label>
+            <select
+              {...register('school')}
+              className="w-full rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+            >
+              <option value="">— Select a school —</option>
+              {BABCOCK_SCHOOLS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            {errors.school && (
+              <span className="text-xs text-red-500">{errors.school.message}</span>
+            )}
+          </div>
+
           <Input 
             label="Initial Password" 
             type="password" 

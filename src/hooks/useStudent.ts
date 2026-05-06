@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getUserFacingErrorMessage } from '../lib/authErrors';
 import type { StudentProfile } from '../types';
@@ -62,15 +62,18 @@ export const useStudent = (matricNo?: string) => {
     };
   }, [matricNo]);
 
-  const searchStudents = async (searchTerm: string) => {
+  const searchStudents = async (searchTerm: string, facultyFilter?: string) => {
     setLoading(true);
     try {
       // NOTE: Simple prefix search. For robust searching, Algolia or MeiliSearch is ideal.
       const studentsRef = collection(db, 'students');
       const terms = searchTerm.toLowerCase().split(' ');
       
-      // Basic query - you will need adequate indexing for complex queries
-      const q = query(studentsRef); 
+      // When a faculty scope is provided (lecturer's school), filter server-side
+      const q = facultyFilter
+        ? query(studentsRef, where('faculty', '==', facultyFilter))
+        : query(studentsRef);
+
       const querySnapshot = await getDocs(q);
       const results: StudentProfile[] = [];
       querySnapshot.forEach((doc) => {

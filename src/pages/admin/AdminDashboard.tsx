@@ -16,6 +16,11 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
+  const [selectedFaculty, setSelectedFaculty] = useState('All');
+  const [selectedLevel, setSelectedLevel] = useState('All');
+  const [selectedGradYear, setSelectedGradYear] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedCgpa, setSelectedCgpa] = useState('All');
 
   // ── Live students from Firestore ───────────────────────────────────────────
   const [students, setStudents] = useState<StudentProfile[]>([]);
@@ -65,15 +70,52 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const departments = useMemo(() => {
-    const deps = new Set(students.map(s => s.department));
-    return ['All', ...Array.from(deps)];
+    const deps = new Set(students.map(s => s.department).filter(Boolean));
+    return ['All', ...Array.from(deps).sort()];
   }, [students]);
 
+  const faculties = useMemo(() => {
+    const facs = new Set(students.map(s => s.faculty).filter(Boolean));
+    return ['All', ...Array.from(facs).sort()];
+  }, [students]);
+
+  const levels = useMemo(() => {
+    const lvls = new Set(students.map(s => s.level).filter(Boolean));
+    return ['All', ...Array.from(lvls).sort()];
+  }, [students]);
+
+  const gradYears = useMemo(() => {
+    const yrs = new Set(students.map(s => s.graduationYear).filter(Boolean) as string[]);
+    return ['All', ...Array.from(yrs).sort()];
+  }, [students]);
+
+  const activeFilterCount = [selectedDepartment, selectedFaculty, selectedLevel, selectedGradYear, selectedStatus, selectedCgpa].filter(v => v !== 'All').length;
+
+  const clearFilters = () => {
+    setSelectedDepartment('All');
+    setSelectedFaculty('All');
+    setSelectedLevel('All');
+    setSelectedGradYear('All');
+    setSelectedStatus('All');
+    setSelectedCgpa('All');
+  };
+
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           student.matricNo.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept = selectedDepartment === 'All' || student.department === selectedDepartment;
-    return matchesSearch && matchesDept;
+    const matchesDept     = selectedDepartment === 'All' || student.department === selectedDepartment;
+    const matchesFaculty  = selectedFaculty === 'All' || student.faculty === selectedFaculty;
+    const matchesLevel    = selectedLevel === 'All' || student.level === selectedLevel;
+    const matchesGradYear = selectedGradYear === 'All' || String(student.graduationYear) === selectedGradYear;
+    const matchesStatus   = selectedStatus === 'All' ||
+      (selectedStatus === 'Complete' ? student.profileComplete : !student.profileComplete);
+    const cgpa = Number(student.cgpa);
+    const matchesCgpa = selectedCgpa === 'All' ||
+      (selectedCgpa === 'first'        && cgpa >= 4.50) ||
+      (selectedCgpa === 'second_upper' && cgpa >= 3.50 && cgpa < 4.50) ||
+      (selectedCgpa === 'second_lower' && cgpa >= 2.40 && cgpa < 3.50) ||
+      (selectedCgpa === 'third'        && cgpa < 2.40);
+    return matchesSearch && matchesDept && matchesFaculty && matchesLevel && matchesGradYear && matchesStatus && matchesCgpa;
   });
 
   return (
@@ -196,25 +238,78 @@ export const AdminDashboard: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-xl shadow-[var(--color-primary)]/5 border border-[var(--color-border)] p-6 relative overflow-hidden backdrop-blur-sm">
             <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-[var(--color-primary)] to-red-600"></div>
             
-            <h3 className="font-bold text-[var(--color-primary)] font-serif mb-6 flex items-center gap-2 mt-2">
-              <Filter className="w-5 h-5" /> Global Filters
-            </h3>
-            
-            <div className="space-y-6">
+            <div className="flex items-center justify-between mt-2 mb-6">
+              <h3 className="font-bold text-[var(--color-primary)] font-serif flex items-center gap-2">
+                <Filter className="w-5 h-5" /> Global Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 text-[10px] font-bold bg-[var(--color-primary)] text-white rounded-full px-1.5 py-0.5">{activeFilterCount}</span>
+                )}
+              </h3>
+              {activeFilterCount > 0 && (
+                <button onClick={clearFilters} className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors">Clear all</button>
+              )}
+            </div>
+
+            <div className="space-y-5">
+              {([
+                { label: 'Department',       value: selectedDepartment, set: setSelectedDepartment, options: departments,  placeholder: 'All Departments' },
+                { label: 'Faculty',          value: selectedFaculty,    set: setSelectedFaculty,    options: faculties,    placeholder: 'All Faculties' },
+                { label: 'Level',            value: selectedLevel,      set: setSelectedLevel,      options: levels,       placeholder: 'All Levels' },
+                { label: 'Graduation Year',  value: selectedGradYear,   set: setSelectedGradYear,   options: gradYears,    placeholder: 'All Years' },
+              ] as const).map(({ label, value, set, options, placeholder }) => (
+                <div key={label}>
+                  <label className="text-xs font-bold text-[var(--color-text-secondary)] mb-2 block uppercase tracking-wider">{label}</label>
+                  <div className="relative">
+                    <select
+                      className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] appearance-none text-sm font-medium transition-all"
+                      value={value}
+                      onChange={(e) => (set as (v: string) => void)(e.target.value)}
+                    >
+                      {options.map((opt: string) => (
+                        <option key={opt} value={opt}>{opt === 'All' ? placeholder : opt}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[var(--color-primary)]">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
               <div>
-                <label className="text-xs font-bold text-[var(--color-text-secondary)] mb-2 block uppercase tracking-wider">Department</label>
+                <label className="text-xs font-bold text-[var(--color-text-secondary)] mb-2 block uppercase tracking-wider">CGPA Class</label>
                 <div className="relative">
                   <select
-                    className="w-full pl-4 pr-10 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] appearance-none text-sm font-medium transition-all"
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] appearance-none text-sm font-medium transition-all"
+                    value={selectedCgpa}
+                    onChange={(e) => setSelectedCgpa(e.target.value)}
                   >
-                    {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept === 'All' ? 'All Departments' : dept}</option>
-                    ))}
+                    <option value="All">All Classes</option>
+                    <option value="first">First Class (≥ 4.50)</option>
+                    <option value="second_upper">Second Class Upper (3.50 – 4.49)</option>
+                    <option value="second_lower">Second Class Lower (2.40 – 3.49)</option>
+                    <option value="third">Third Class / Pass (&lt; 2.40)</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[var(--color-primary)]">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--color-text-secondary)] mb-2 block uppercase tracking-wider">Profile Status</label>
+                <div className="relative">
+                  <select
+                    className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] appearance-none text-sm font-medium transition-all"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Incomplete">Incomplete</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[var(--color-primary)]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                   </div>
                 </div>
               </div>

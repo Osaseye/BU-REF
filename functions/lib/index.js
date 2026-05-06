@@ -8,6 +8,8 @@ const bcrypt = require("bcryptjs");
 admin.initializeApp();
 const db = admin.firestore();
 const BOOTSTRAP_SECRET = (0, params_1.defineSecret)("BOOTSTRAP_SECRET");
+const UMIS_BULK_API_URL = (0, params_1.defineString)("UMIS_BULK_API_URL", { default: "https://bu-ref-proxy.onrender.com/mock-bulk.php" });
+const UMIS_BULK_API_KEY = (0, params_1.defineString)("UMIS_BULK_API_KEY", { default: "" });
 // Salt rounds for bcrypt — 12 is a good balance of security and speed on Cloud Functions
 const SALT_ROUNDS = 12;
 // 1. createStudentSession
@@ -88,9 +90,21 @@ exports.inviteLecturer = (0, https_1.onCall)(async (request) => {
     }
     catch (error) {
         console.error("Error inviting lecturer:", error);
-        if (error?.code === "auth/email-already-exists") {
+        // Re-throw errors we already constructed (e.g. permission-denied from admin check)
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        // Map known Firebase Auth error codes to friendly messages
+        const authCode = error?.code ?? "";
+        if (authCode === "auth/email-already-exists") {
             throw new https_1.HttpsError("already-exists", "An account with this email already exists.");
         }
+        if (authCode === "auth/invalid-email") {
+            throw new https_1.HttpsError("invalid-argument", "The email address is not valid.");
+        }
+        if (authCode === "auth/invalid-password") {
+            throw new https_1.HttpsError("invalid-argument", "Password must be at least 6 characters.");
+        }
+        console.error("Unhandled inviteLecturer error code:", authCode, error?.message);
         throw new https_1.HttpsError("internal", "Failed to create lecturer account.");
     }
 });
@@ -130,11 +144,8 @@ exports.bulkSyncStudentsFromUmis = (0, https_1.onCall)(async (request) => {
     if (!adminDoc.exists) {
         throw new https_1.HttpsError("permission-denied", "Only admins can trigger a bulk sync.");
     }
-    const umisApiUrl = process.env.UMIS_BULK_API_URL;
-    const umisApiKey = process.env.UMIS_BULK_API_KEY;
-    if (!umisApiUrl) {
-        throw new https_1.HttpsError("failed-precondition", "UMIS_BULK_API_URL is not configured.");
-    }
+    const umisApiUrl = UMIS_BULK_API_URL.value();
+    const umisApiKey = UMIS_BULK_API_KEY.value();
     let students;
     try {
         const res = await fetch(umisApiUrl, {

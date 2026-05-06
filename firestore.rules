@@ -11,13 +11,19 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/lecturers/$(request.auth.uid)).data.status == 'active';
     }
 
+    function lecturerCanReadStudent() {
+      let lecturer = get(/databases/$(database)/documents/lecturers/$(request.auth.uid)).data;
+      return lecturer.status == 'active'
+        && (lecturer.school == null || lecturer.school == resource.data.faculty);
+    }
+
     function isStudent(safeId) {
       return request.auth.token.matricNo.replace('/', '-') == safeId;
     }
 
     // Students collection
     match /students/{safeId} {
-      allow read: if isAdmin() || isActiveLecturer() || isStudent(safeId);
+      allow read: if isAdmin() || lecturerCanReadStudent() || isStudent(safeId);
       allow update: if isStudent(safeId)
         && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['matricNo','fullName','department','faculty','cgpa','level','lastUmisSyncAt']);

@@ -44,6 +44,7 @@ export interface LecturerProfile {
   fullName: string;
   email: string;
   department?: string;
+  school?: string;
   status: 'active' | 'revoked';
   invitedBy?: string;
   invitedAt?: { toDate: () => Date } | null;

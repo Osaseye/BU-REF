@@ -7,6 +7,7 @@ export interface Lecturer {
   fullName: string;
   email: string;
   department?: string;
+  school?: string;
   status: 'active' | 'revoked';
   invitedAt?: { toDate: () => Date } | null;
 }
@@ -26,7 +27,7 @@ export const LecturerTable: React.FC<LecturerTableProps> = ({ lecturers, onRevok
               Staff Member
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
-              Department
+              School / Faculty
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
               Status
@@ -54,7 +55,7 @@ export const LecturerTable: React.FC<LecturerTableProps> = ({ lecturers, onRevok
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-[var(--color-text-primary)]">{lecturer.department || 'N/A'}</div>
+                <div className="text-sm text-[var(--color-text-primary)]">{lecturer.school || 'N/A'}</div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 {lecturer.status === 'active' ? (

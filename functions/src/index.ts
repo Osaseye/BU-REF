@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcryptjs";
 
@@ -7,6 +7,8 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const BOOTSTRAP_SECRET = defineSecret("BOOTSTRAP_SECRET");
+const UMIS_BULK_API_URL = defineString("UMIS_BULK_API_URL", { default: "https://bu-ref-proxy.onrender.com/mock-bulk.php" });
+const UMIS_BULK_API_KEY = defineString("UMIS_BULK_API_KEY", { default: "" });
 
 // Salt rounds for bcrypt — 12 is a good balance of security and speed on Cloud Functions
 const SALT_ROUNDS = 12;
@@ -67,7 +69,7 @@ export const inviteLecturer = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "You must be logged in to invite lecturers.");
   }
 
-  const { name, email, department, password } = data;
+  const { name, email, department, school, password } = data;
   
   if (!name || !email) {
     throw new HttpsError("invalid-argument", "Name and email are required fields.");
@@ -97,6 +99,7 @@ export const inviteLecturer = onCall(async (request) => {
       fullName: name,
       email: email,
       department: department || null,
+      school: school || null,
       invitedBy: auth.uid,
       invitedAt: admin.firestore.FieldValue.serverTimestamp(),
       status: "active",
@@ -106,9 +109,20 @@ export const inviteLecturer = onCall(async (request) => {
 
   } catch (error: any) {
     console.error("Error inviting lecturer:", error);
-    if (error?.code === "auth/email-already-exists") {
+    // Re-throw errors we already constructed (e.g. permission-denied from admin check)
+    if (error instanceof HttpsError) throw error;
+    // Map known Firebase Auth error codes to friendly messages
+    const authCode = error?.code ?? "";
+    if (authCode === "auth/email-already-exists") {
       throw new HttpsError("already-exists", "An account with this email already exists.");
     }
+    if (authCode === "auth/invalid-email") {
+      throw new HttpsError("invalid-argument", "The email address is not valid.");
+    }
+    if (authCode === "auth/invalid-password") {
+      throw new HttpsError("invalid-argument", "Password must be at least 6 characters.");
+    }
+    console.error("Unhandled inviteLecturer error code:", authCode, error?.message);
     throw new HttpsError("internal", "Failed to create lecturer account.");
   }
 });
@@ -158,12 +172,8 @@ export const bulkSyncStudentsFromUmis = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Only admins can trigger a bulk sync.");
   }
 
-  const umisApiUrl = process.env.UMIS_BULK_API_URL;
-  const umisApiKey  = process.env.UMIS_BULK_API_KEY;
-
-  if (!umisApiUrl) {
-    throw new HttpsError("failed-precondition", "UMIS_BULK_API_URL is not configured.");
-  }
+  const umisApiUrl = UMIS_BULK_API_URL.value();
+  const umisApiKey  = UMIS_BULK_API_KEY.value();
 
   let students: any[];
   try {

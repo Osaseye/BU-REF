@@ -25,11 +25,11 @@ export const useLecturers = () => {
     return () => unsubscribe();
   }, []);
 
-  const inviteLecturer = async (name: string, email: string, department?: string, password?: string) => {
+  const inviteLecturer = async (name: string, email: string, school?: string, password?: string) => {
     setLoading(true);
     try {
       const inviteFunc = httpsCallable(functions, 'inviteLecturer');
-      await inviteFunc({ name, email, department, password });
+      await inviteFunc({ name, email, school, password });
       toast.success(`Account created for ${name}. Share their email and initial password with them to log in.`);
     } catch (error: any) {
       console.error(error);
